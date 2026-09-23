@@ -2,7 +2,7 @@
  * Description: This program counts how many times each individual name appears across one or more files.
  * Author names: Ebsan Iqbal, Raymond Okolo
  * Author emails: ebsan.iqbal@sjsu.edu, raymond.okolo@sjsu.edu
- * Last modified date: 9/5/2026
+ * Last modified date: 9/23/2026
  * Creation date: 9/2/2026
  **/
 
@@ -128,13 +128,18 @@ void printNames(){
         }
     }
 }
+
+/**
+ * This is function outputs the names and number of occurrences in a readable format to a PID.out file.
+ * Returns: nothing
+**/
 void outputPIDs(char * pid) {
     char filename[32];
     snprintf(filename, sizeof(filename), "%s.out", pid);
 
     FILE *fp = fopen(filename, "w");
     if (fp == NULL) {
-        perror("fopen failed");
+        fprintf(stderr,"error: cannot open file %s\n", filename);
         exit(1);
     }
 
@@ -153,12 +158,12 @@ void outputPIDs(char * pid) {
 int main(int argc, char *argv[]) {
     FILE *fp = NULL;
 
-    if(argv[3] == "1") {
+    if(strcmp(argv[2], "1") == 0) {
         fp = stdin;
     }else  {
         fp = fopen(argv[2], "r");
         if(fp == NULL) {
-            fprintf(stderr,"error: cannot open file\n");
+            fprintf(stderr,"error: cannot open file %s\n", argv[2]);
             exit(1);
         }
     }
@@ -167,11 +172,11 @@ int main(int argc, char *argv[]) {
     int lineNum = 1;
 
     char errFile[32];
-    snprintf(errFile, sizeof(errFile), "%s.err", argv[1]);
+    snprintf(errFile, sizeof(errFile), "%s.err", argv[1]); //PID.out file
 
     FILE *ep = fopen(errFile, "w");
     if (ep == NULL) {
-        perror("fopen failed");
+        fprintf(stderr,"error: cannot open created error file.\n");
         exit(1);
     }
 
@@ -181,7 +186,7 @@ int main(int argc, char *argv[]) {
     while(fgets(buffer, sizeof(buffer), fp) != NULL) {
         buffer[strcspn(buffer, "\r\n")] = '\0';
         if(strlen(buffer) == 0) {
-            fprintf(ep, "Warning - Line %d is empty.\n", lineNum);
+            fprintf(ep, "Warning - file %s line %d is empty.\n", argv[2], lineNum);
         }else {
             char *trueLine = strdup(buffer);
             insert(trueLine);
@@ -190,8 +195,8 @@ int main(int argc, char *argv[]) {
     }
 
     //printNames();
-
     outputPIDs(argv[1]);
+
     //no need to close if its stdin
     if(fp != stdin) {
         fclose(fp);
