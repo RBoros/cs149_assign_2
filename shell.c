@@ -1,5 +1,5 @@
 /**
-* Description: This program creates multiple simultaneous processes for countnames.c
+ * Description: This program creates multiple simultaneous processes for countnames.c
  * Author names: Ebsan Iqbal, Raymond Okolo
  * Author emails: ebsan.iqbal@sjsu.edu, raymond.okolo@sjsu.edu
  * Last modified date: 9/23/2026
@@ -51,20 +51,24 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
     }
-    for (int i = 0; i < children; i++) {
-        int status;
-        pid_t pid;
-        while ((pid = wait(&status)) > 0) {
-            //wait(.) returns the PID of the child that finished, or <0 if there is no child to finish
-            if (WIFEXITED(status)) {
-                fprintf(stderr, "Child %d terminated normally with exit code: %d\n",
-                       pid, WEXITSTATUS(status)); //the return X; value
-            } else if (WIFSIGNALED(status)) {
-                fprintf(stderr, "Child %d terminated abnormally with signal number: %d\n",
-                       pid, WTERMSIG(status));
-            }
+    int status;
+    pid_t pid;
+
+    while ((pid = wait(&status)) > 0) {
+        if (WIFEXITED(status)) {
+            fprintf(stderr,
+                    "Child %d terminated normally with exit code: %d\n",
+                    pid,
+                    WEXITSTATUS(status));
+        }
+        else if (WIFSIGNALED(status)) {
+            fprintf(stderr,
+                    "Child %d terminated abnormally with signal number: %d\n",
+                    pid,
+                    WTERMSIG(status));
         }
     }
 
-    //return 0;
+    return 0;
+
 }

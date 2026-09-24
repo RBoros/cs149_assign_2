@@ -113,10 +113,10 @@ void insert(char *name) {
     }
 }
 
-/**
- * This is function prints the names and number of occurrences in a readable format.
- * Returns: nothing
-**/
+
+ //This is function prints the names and number of occurrences in a readable format.
+ //Returns: nothing
+
 void printNames(){
     for(int i = 0; i < nameCount; i++) {
         struct nlist *np = lookup(nameList[i]);
@@ -129,10 +129,8 @@ void printNames(){
     }
 }
 
-/**
- * This is function outputs the names and number of occurrences in a readable format to a PID.out file.
- * Returns: nothing
-**/
+ //This is function outputs the names and number of occurrences in a readable format to a PID.out file.
+ //Returns: nothing
 void outputPIDs(char * pid) {
     char filename[32];
     snprintf(filename, sizeof(filename), "%s.out", pid);
@@ -158,49 +156,106 @@ void outputPIDs(char * pid) {
 int main(int argc, char *argv[]) {
     FILE *fp = NULL;
 
-    if(strcmp(argv[2], "1") == 0) {
+    char pidStr[16];
+    char *pid;
+    char *inputName;
+
+    /*
+     * countnames run directly with no filename:
+     * read from stdin and use this process's PID for output files.
+     */
+    if (argc == 1) {
+        snprintf(pidStr, sizeof(pidStr), "%d", getpid());
+        pid = pidStr;
+        inputName = "stdin";
         fp = stdin;
-    }else  {
-        fp = fopen(argv[2], "r");
-        if(fp == NULL) {
-            fprintf(stderr,"error: cannot open file %s\n", argv[2]);
+    }
+
+
+    //Optional direct-file mode:
+    //./countnames names.txt
+    else if (argc == 2) {
+        snprintf(pidStr, sizeof(pidStr), "%d", getpid());
+        pid = pidStr;
+        inputName = argv[1];
+
+        fp = fopen(argv[1], "r");
+        if (fp == NULL) {
+            fprintf(stderr, "error: cannot open file %s\n", argv[1]);
             exit(1);
         }
+    }
+
+
+     //Normal Assignment 2 mode:
+     //shell calls:
+     //./countnames PID filename
+     //"1" is used by shell.c to indicate stdin.
+
+    else if (argc == 3) {
+        pid = argv[1];
+
+        if (strcmp(argv[2], "1") == 0) {
+            fp = stdin;
+            inputName = "stdin";
+        }
+        else {
+            inputName = argv[2];
+
+            fp = fopen(argv[2], "r");
+            if (fp == NULL) {
+                fprintf(stderr, "error: cannot open file %s\n", argv[2]);
+                exit(1);
+            }
+        }
+    }
+    else {
+        fprintf(stderr, "error: invalid arguments\n");
+        return 1;
     }
 
     char buffer[32];
     int lineNum = 1;
 
     char errFile[32];
-    snprintf(errFile, sizeof(errFile), "%s.err", argv[1]); //PID.out file
+    snprintf(errFile, sizeof(errFile), "%s.err", pid);
 
     FILE *ep = fopen(errFile, "w");
     if (ep == NULL) {
-        fprintf(stderr,"error: cannot open created error file.\n");
+        fprintf(stderr, "error: cannot open created error file.\n");
+
+        if (fp != stdin) {
+            fclose(fp);
+        }
+
         exit(1);
     }
 
-    //This loop retrieves a line from the file(s).
-    //Replaces the newline character and removes extra spaces in buffer.
-    //calls insert() and increments lineNum.
-    while(fgets(buffer, sizeof(buffer), fp) != NULL) {
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         buffer[strcspn(buffer, "\r\n")] = '\0';
-        if(strlen(buffer) == 0) {
-            fprintf(ep, "Warning - file %s line %d is empty.\n", argv[2], lineNum);
-        }else {
+
+        if (strlen(buffer) == 0) {
+            fprintf(
+                ep,
+                "Warning - file %s line %d is empty.\n",
+                inputName,
+                lineNum
+            );
+        }
+        else {
             char *trueLine = strdup(buffer);
             insert(trueLine);
         }
+
         lineNum++;
     }
 
-    //printNames();
-    outputPIDs(argv[1]);
+    outputPIDs(pid);
 
-    //no need to close if its stdin
-    if(fp != stdin) {
+    if (fp != stdin) {
         fclose(fp);
     }
+
     fclose(ep);
 
     return 0;
