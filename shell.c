@@ -12,15 +12,32 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#define MAX_LINE 1024   // max characters read per prompt line
+#define MAX_TOKENS 64   // max tokens (command + filenames) per line
 
+void makeChildren(char *cmd, char *filename){
+    pid_t pid = fork();
+
+    if(pid < 0){
+        printf("Fork failed");
+    }
+    else if(pid == 0){
+        char childPidStr[16];
+        snprintf(childPidStr, sizeof(childPidStr), "%d", getpid());
+
+        execl(cmd, cmd, childPidStr, filename, NULL);
+
+        // execl only returns if it failed
+        fprintf(stderr,"error: cannot exec %s\n", cmd);
+        exit(1);
+    }
+
+}
 int main(int argc, char *argv[]) {
-    int children = 0;
+    /*
     if(argc > 1) {
-        children = 0;
         for(int i = 1; i < argc; i++){
-            children++;
             pid_t pid = fork();
-
             if(pid < 0){
                 printf("Fork failed");
             }
@@ -35,9 +52,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }else if (argc == 1){
-        children = 1;
         pid_t pid = fork();
-
         if(pid < 0){
             printf("Fork failed");
         }
@@ -51,24 +66,68 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
     }
-    int status;
-    pid_t pid;
+    */
 
-    while ((pid = wait(&status)) > 0) {
-        if (WIFEXITED(status)) {
-            fprintf(stderr,
-                    "Child %d terminated normally with exit code: %d\n",
-                    pid,
-                    WEXITSTATUS(status));
+
+    char line[MAX_LINE];
+
+    while (1){
+        printf("%% ");
+        fflush(stdout);
+
+        // EOF (Ctrl+D) ends the shell
+        if (fgets(line, sizeof(line), stdin) == NULL) {
+            printf("\n");
+            break;
         }
-        else if (WIFSIGNALED(status)) {
-            fprintf(stderr,
-                    "Child %d terminated abnormally with signal number: %d\n",
-                    pid,
-                    WTERMSIG(status));
+
+        // split the line into whitespace-separated tokens
+        char *tokens[MAX_TOKENS];
+        int count = 0;
+        char *token = strtok(line, " \t\r\n");
+        while (token != NULL && count < MAX_TOKENS) {
+            tokens[count++] = token;
+            token = strtok(NULL, " \t\r\n");
+        }
+
+        if (count == 0) {
+            continue;   // blank line: just show the prompt again
+        }
+        if (strcmp(tokens[0], "exit") == 0) {
+            break;
+        }
+
+        if (count == 1) {
+            // no files given: one child reads stdin ("1" tells countnames so)
+            makeChildren(tokens[0], "1");
+        }
+        else {
+            // one child per input file, all running in parallel
+            for (int i = 1; i < count; i++) {
+                makeChildren(tokens[0], tokens[i]);
+            }
+        }
+
+
+        // Parent: reap every child so none are left as zombies, and report
+        // whether each exited normally or was killed by a signal.
+        int status;
+        pid_t pid;
+        while ((pid = wait(&status)) > 0) {
+            if (WIFEXITED(status)) {
+                fprintf(stderr,
+                        "Child %d terminated normally with exit code: %d\n",
+                        pid,
+                        WEXITSTATUS(status));
+            }
+            else if (WIFSIGNALED(status)) {
+                fprintf(stderr,
+                        "Child %d terminated abnormally with signal number: %d\n",
+                        pid,
+                        WTERMSIG(status));
+            }
         }
     }
 
     return 0;
-
 }
